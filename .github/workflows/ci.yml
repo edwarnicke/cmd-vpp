@@ -17,3 +17,168 @@ jobs:
         with:
           yamllint_file_or_dir: '.github/ci/yamllint.yml'
           yamllint_strict: true
+  build:
+    name: generate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+      # This is a hack around secrets.* in steps.if statements not being supported
+      - name: Assign Secrets
+        id: secrets
+        run: |
+          echo '::set-output name=GHCR_TOKEN::${{secrets.GHCR_TOKEN}}'
+      - name: Docker Login
+        if: ${{steps.secrets.outputs.GHCR_TOKEN != '' }}
+        run: echo ${{secrets.GHCR_TOKEN}} | docker login ghcr.io -u ${{github.repository_owner}} --password-stdin
+      - name: Set Swap Space
+        uses: pierotofy/set-swap-space@v1.0
+        with:
+          swap-size-gb: 4
+      - name: Memory usage
+        run: free -m
+      - name: List installed packages
+        run: dpkg -la
+      - name: Free Disk Space for Docker
+        run: |
+          df -h
+          sudo apt-get remove aria2 ansible azure-cli shellcheck rpm xorriso zsync \
+               clang-8 lld-8 clang-format-8 \
+               clang-10 lldb-10 lld-10 clang-format-10 \
+               clang-9 lld-9 clang-format-9 \
+               dotnet-sdk-3.1  dotnet-sdk-5.0 \
+               esl-erlang firefox g++-7 g++-8 g++-9 g++-10 gfortran-8 gfortran-9 gfortran-10 google-chrome-stable \
+               google-cloud-sdk \
+               imagemagick \
+               libmagickcore-dev libmagickwand-dev libmagic-dev ant ant-optional \
+               mercurial apt-transport-https mono-complete mysql-client libmysqlclient-dev \
+               mysql-server mssql-tools unixodbc-dev yarn chrpath libssl-dev libxft-dev \
+               libfreetype6 libfreetype6-dev libfontconfig1 libfontconfig1-dev \
+               php-common \
+               php-pear \
+               php7.4 \
+               php7.4-amqp \
+               php7.4-apcu \
+               php7.4-bcmath \
+               php7.4-bz2 \
+               php7.4-cgi \
+               php7.4-cli \
+               php7.4-common \
+               php7.4-curl \
+               php7.4-dba \
+               php7.4-dev \
+               php7.4-enchant \
+               php7.4-fpm \
+               php7.4-gd \
+               php7.4-gmp \
+               php7.4-igbinary \
+               php7.4-imagick \
+               php7.4-imap \
+               php7.4-interbase \
+               php7.4-intl \
+               php7.4-json \
+               php7.4-ldap \
+               php7.4-mbstring \
+               php7.4-memcache \
+               php7.4-memcached \
+               php7.4-mongodb \
+               php7.4-msgpack \
+               php7.4-mysql \
+               php7.4-odbc \
+               php7.4-opcache \
+               php7.4-pcov \
+               php7.4-pgsql \
+               php7.4-phpdbg \
+               php7.4-pspell \
+               php7.4-readline \
+               php7.4-redis \
+               php7.4-snmp \
+               php7.4-soap \
+               php7.4-sqlite3 \
+               php7.4-sybase \
+               php7.4-tidy \
+               php7.4-xdebug \
+               php7.4-xml \
+               php7.4-xmlrpc \
+               php7.4-xsl \
+               php7.4-yaml \
+               php7.4-zip \
+               php7.4-zmq \
+               php8.0 \
+               php8.0-amqp \
+               php8.0-apcu \
+               php8.0-bcmath \
+               php8.0-bz2 \
+               php8.0-cgi \
+               php8.0-cli \
+               php8.0-common \
+               php8.0-curl \
+               php8.0-dba \
+               php8.0-dev \
+               php8.0-enchant \
+               php8.0-fpm \
+               php8.0-gd \
+               php8.0-gmp \
+               php8.0-igbinary \
+               php8.0-imagick \
+               php8.0-imap \
+               php8.0-interbase \
+               php8.0-intl \
+               php8.0-ldap \
+               php8.0-mbstring \
+               php8.0-memcache \
+               php8.0-memcached \
+               php8.0-mongodb \
+               php8.0-msgpack \
+               php8.0-mysql \
+               php8.0-odbc \
+               php8.0-opcache \
+               php8.0-pcov \
+               php8.0-pgsql \
+               php8.0-phpdbg \
+               php8.0-pspell \
+               php8.0-readline \
+               php8.0-redis \
+               php8.0-snmp \
+               php8.0-soap \
+               php8.0-sqlite3 \
+               php8.0-sybase \
+               php8.0-tidy \
+               php8.0-xdebug \
+               php8.0-xml \
+               php8.0-xsl \
+               php8.0-yaml \
+               php8.0-zip \
+               php8.0-zmq \
+               snmp pollinate libpq-dev postgresql-client powershell ruby-full \
+               libnginx-mod-http-image-filter libmono-system-web4.0-cil monodoc-http \
+               sphinxsearch subversion mongodb-org -yq --allow-remove-essential
+          sudo apt-get autoremove -y
+          sudo apt-get autoclean -y
+          sudo rm -rf /usr/local/lib/android
+          sudo apt clean
+          docker rmi $(docker image ls -aq)
+          df -h
+      - name: Docker Build
+        run: |
+          docker build .
+          VPP_VERSION=$(docker run $(docker build -q . --target version))
+          echo "VPP_VERSION=${VPP_VERSION}" >> $GITHUB_ENV
+          TAG=v${VPP_VERSION/\~/-}
+          echo "TAG=${TAG}" >> $GITHUB_ENV
+          docker build -t ghcr.io/${{github.repository}}/vpp:${TAG} . --target vpp
+          docker build -t ghcr.io/${{github.repository}}/vpp-dbg:${TAG} . --target vpp-dbg
+      - name: Docker Push
+        if: ${{steps.secrets.outputs.GHCR_TOKEN != '' && github.head_ref == ''}}
+        run: |
+          docker push ghcr.io/${{github.repository}}/vpp:${TAG}
+          docker push ghcr.io/${{github.repository}}/vpp-dbg:${TAG}
+      - name: Tag
+        if: ${{steps.secrets.outputs.GHCR_TOKEN != '' && github.head_ref == ''}}
+        id: tag
+        uses: mathieudutour/github-tag-action@v5.6
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          custom_tag: ${{ env.TAG }}
+          tag_prefix: ""
+
