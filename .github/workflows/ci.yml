@@ -41,11 +41,13 @@ jobs:
           echo "TAG=${TAG}" >> $GITHUB_ENV
           docker build -t ghcr.io/${{github.repository}}/vpp:${TAG} . --target vpp
           docker build -t ghcr.io/${{github.repository}}/vpp-dbg:${TAG} . --target vpp-dbg
+          docker build -t ghcr.io/${{github.repository}}/vpp-api:${TAG} . --target vpp-api
       - name: Docker Push
         if: ${{steps.secrets.outputs.GHCR_TOKEN != '' && github.head_ref == ''}}
         run: |
           docker push ghcr.io/${{github.repository}}/vpp:${TAG}
           docker push ghcr.io/${{github.repository}}/vpp-dbg:${TAG}
+          docker push ghcr.io/${{github.repository}}/vpp-api:${TAG}
       - name: Tag
         if: ${{steps.secrets.outputs.GHCR_TOKEN != '' && github.head_ref == ''}}
         id: tag
