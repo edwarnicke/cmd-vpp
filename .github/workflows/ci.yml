@@ -43,13 +43,13 @@ jobs:
           docker build -t ghcr.io/${{github.repository}}/vpp-dbg:${TAG} . --target vpp-dbg
           docker build -t ghcr.io/${{github.repository}}/vpp-api:${TAG} . --target vpp-api
       - name: Docker Push
-        if: ${{steps.secrets.outputs.GHCR_TOKEN != '' && github.head_ref == ''}}
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         run: |
           docker push ghcr.io/${{github.repository}}/vpp:${TAG}
           docker push ghcr.io/${{github.repository}}/vpp-dbg:${TAG}
           docker push ghcr.io/${{github.repository}}/vpp-api:${TAG}
       - name: Tag
-        if: ${{steps.secrets.outputs.GHCR_TOKEN != '' && github.head_ref == ''}}
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         id: tag
         uses: mathieudutour/github-tag-action@v5.6
         with:
