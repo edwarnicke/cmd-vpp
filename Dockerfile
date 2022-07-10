@@ -24,6 +24,9 @@ RUN VPP_INSTALL_SKIP_SYSCTL=false apt install -f -y --no-install-recommends /pkg
     rm -rf /var/lib/apt/lists/*; \
     rm -rf /pkg
 
+FROM scratch as vpp-api
+COPY --from=vppinstall /usr/share/vpp/api/ /usr/share/vpp/api/
+
 FROM ubuntu:${UBUNTU_VERSION} as vpp
 COPY --from=vppinstall / /
 
